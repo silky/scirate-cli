@@ -7,13 +7,13 @@ module Scirate where
 import Lens.Micro.TH
 
 import           Conduit (runConduit, (.|))
+import           Options.Applicative  ((<*>))
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.Aeson
-import           Data.List (zipWith5)
+import           GHC.Generics
 import           Data.Maybe (isJust, fromJust)
 import           Data.Time.Calendar
 import           Data.Time.Clock
-import           GHC.Generics
 import           Network.HTTP.Conduit
 import           Network.HTTP.Types.Status (statusCode)
 import           Text.Read (readMaybe)
@@ -83,7 +83,6 @@ attributeContains n v c =
 
 loadPapers :: Document -> [Paper]
 loadPapers doc =
-  -- TODO: This could probably be cleaned up.
   let cursor         = fromDocument doc
       papers         = cursor $// attributeIs "class" "papers" &/ element "li"
       titlesOf c     = map asString $ c $// attributeIs       "class" "title"        &/  element "a"
@@ -99,12 +98,12 @@ loadPapers doc =
 
       stripCommas = Text.dropAround (\c -> c == ',')
 
-      final = zipWith5 Paper
-                (nonEmpty titlesOf papers)
-                (nonEmpty abstractsOf papers)
-                (map (map (stripCommas . head)) (map authorsOf papers))
-                (map (read . Text.unpack) $ nonEmpty scitesOf papers)
-                (map (map head) (map categoriesOf papers))
+      final = Paper
+                <$> nonEmpty titlesOf papers
+                <*> nonEmpty abstractsOf papers
+                <*> map (map (stripCommas . head)) (map authorsOf papers)
+                <*> map (read . Text.unpack) (nonEmpty scitesOf papers)
+                <*> map (map head) (map categoriesOf papers)
    in final
 
 

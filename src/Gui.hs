@@ -1,28 +1,27 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE DeriveGeneric     #-}
 
 module Gui where
 
-import Lens.Micro
-import Lens.Micro.TH
-
-import qualified Graphics.Vty         as V
-
-import Scirate
-
-import qualified Data.List           as List
-import qualified Data.Text           as Text
-
 import           Brick ((<=>), (<+>))
+import           Data.Aeson
+import           GHC.Generics
+import           Lens.Micro
+import           Lens.Micro.TH
+import           Scirate
 import qualified Brick                 as B
-import qualified Brick.Widgets.List    as B
-import qualified Brick.Widgets.Border  as B
-import qualified Brick.Widgets.Center  as B
 import qualified Brick.BChan           as B
 import qualified Brick.Focus           as B
 import qualified Brick.Forms           as B
+import qualified Brick.Widgets.Border  as B
+import qualified Brick.Widgets.Center  as B
+import qualified Brick.Widgets.List    as B
+import qualified Data.List           as List
+import qualified Data.Text           as Text
 import qualified Graphics.Vty          as V
+import qualified Graphics.Vty         as V
 import qualified Graphics.Vty.Input.Events as B
 
 -- TODO:
@@ -52,7 +51,10 @@ data Name
   = Scited
   | Ignored
   | OpeningLater
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance ToJSON   Name
+instance FromJSON Name
 
 data AppState = AppState
   { _papers       :: [Paper]
@@ -62,8 +64,11 @@ data AppState = AppState
   , _openingLater :: [Paper]
   -- | For undo
   , _actions      :: [Name]
-  }
+  } deriving (Show, Generic)
 makeLenses ''AppState
+
+instance ToJSON   AppState
+instance FromJSON AppState
 
 
 paperPanel :: [Paper] -> B.Widget Name
@@ -241,26 +246,14 @@ eventHandler s ev = do
       _ -> B.continue s
 
 
-runGui :: ScirateQuery -> IO ()
-runGui scirate = do
+runGui :: AppState -> IO AppState
+runGui state = do
   let buildVty = do
         v <- V.mkVty =<< V.standardIOConfig
         V.setMode (V.outputIface v) V.Mouse True
         return v
-      --
-      state =
-        AppState 
-          { _papers       = scirate ^. papersFound
-          , _currentIndex = 0
-          , _scited       = []
-          , _ignored      = []
-          , _openingLater = []
-          , _actions      = []
-          }
 
   initialVty <- buildVty
   finalState <- B.customMain initialVty buildVty Nothing app state
 
-  -- TODO: Do something with finalState
-  --
-  return ()
+  return finalState

@@ -1,7 +1,8 @@
 module Main where
 
 import           Scirate
-import           Gui                  (runGui)
+import           Gui                  (runGui, AppState(..))
+import           Lens.Micro
 import           Configuration.Dotenv (loadFile, defaultConfig)
 import           Data.Aeson           (encode, decode)
 import           Data.Maybe           (fromJust)
@@ -44,7 +45,7 @@ main = do
 
   loadFile defaultConfig
 
-  scirate <- case (mode opts) of
+  state <- case (mode opts) of
     New -> do
       putStrLn "Querying data from scirate ..."
 
@@ -54,13 +55,26 @@ main = do
       
       --  3. Save the query (and the papers)
       BSL.writeFile "query.json" (encode q)
-      return q
+
+      --
+      let state = AppState 
+                    { _papers       = q ^. papersFound
+                    , _currentIndex = 0
+                    , _scited       = []
+                    , _ignored      = []
+                    , _openingLater = []
+                    , _actions      = []
+                    }
+
+      --  4. Run
+      return state
 
     Resume -> do
       putStrLn "Resuming a previous session ..."
-      q <- fromJust . decode <$> BSL.readFile "query.json" 
-      return q
+      state <- fromJust . decode <$> BSL.readFile "last-state.json" 
+      return state
 
-  -- 4. Run
+  newState <- runGui state
 
-  runGui scirate
+  BSL.writeFile "last-state.json" (encode newState)
+

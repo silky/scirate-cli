@@ -82,7 +82,7 @@ paperPanel (nextPaper:_) =
       # B.padTop    (B.Pad 1) 
       # B.padLeft   (B.Pad 2) 
       # B.padRight  (B.Pad 2) 
-      # B.borderWithLabel (B.withAttr "title" $ B.txt (" " <> title' <> " "))
+      # B.borderWithLabel (B.str " " <+> (B.withAttr "title" $ B.txt title') <+> B.str " ")
       # B.hLimit 88
       # B.vLimit 20
       # B.padAll 1
@@ -171,7 +171,7 @@ app = B.App
 
 style :: B.AttrMap
 style = B.attrMap V.defAttr
-  [ ("title",  B.fg V.cyan)
+  [ ("title",  V.withStyle (B.fg V.brightGreen) V.underline)
   ]
 
 

@@ -57,13 +57,13 @@ instance ToJSON   Name
 instance FromJSON Name
 
 data AppState = AppState
-  { _papers       :: [Paper]
-  , _currentIndex :: Int
-  , _scited       :: [Paper]
-  , _ignored      :: [Paper]
-  , _openingLater :: [Paper]
+  { _papers       :: ![Paper]
+  , _currentIndex :: !Int
+  , _scited       :: ![Paper]
+  , _ignored      :: ![Paper]
+  , _openingLater :: ![Paper]
   -- | For undo
-  , _actions      :: [Name]
+  , _actions      :: ![Name]
   } deriving (Show, Generic)
 makeLenses ''AppState
 

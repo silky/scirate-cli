@@ -7,9 +7,10 @@ module Scirate where
 import Lens.Micro.TH
 
 import           Conduit (runConduit, (.|))
-import           Options.Applicative  ((<*>))
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.Aeson
+import           Data.List (zipWith5)
+import           Lens.Micro
 import           GHC.Generics
 import           Data.Maybe (isJust, fromJust)
 import           Data.Time.Calendar
@@ -98,12 +99,12 @@ loadPapers doc =
 
       stripCommas = Text.dropAround (\c -> c == ',')
 
-      final = Paper
-                <$> nonEmpty titlesOf papers
-                <*> nonEmpty abstractsOf papers
-                <*> map (map (stripCommas . head)) (map authorsOf papers)
-                <*> map (read . Text.unpack) (nonEmpty scitesOf papers)
-                <*> map (map head) (map categoriesOf papers)
+      final = zipWith5 Paper
+                (nonEmpty titlesOf papers)
+                (nonEmpty abstractsOf papers)
+                (map (map (stripCommas . head)) (map authorsOf papers))
+                (map (read . Text.unpack) (nonEmpty scitesOf papers))
+                (map (map head) (map categoriesOf papers))
    in final
 
 
@@ -154,6 +155,8 @@ runScirateQuery url range = do
 
   allDocs <- ((:) doc0) <$> mapM asDocument pages
 
+  putStrLn "Collected all the docs!"
+
   let allPapers = concat $ map loadPapers allDocs
       scirate   = ScirateQuery
                     { _date        = now
@@ -162,4 +165,5 @@ runScirateQuery url range = do
                     , _papersFound = allPapers
                     }
 
+  putStrLn $ "Found: " <> show (length (scirate ^. papersFound))
   return scirate

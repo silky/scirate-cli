@@ -52,6 +52,8 @@ main = do
       --  1. Set up a scirate query
       --  2. Run it and collect papers
       q <- runScirateQuery ("https://scirate.com/?range=" <> show (range opts)) (range opts)
+
+      putStrLn "Saving the file!"
       
       --  3. Save the query (and the papers)
       BSL.writeFile "query.json" (encode q)
@@ -77,4 +79,3 @@ main = do
   newState <- runGui state
 
   BSL.writeFile "last-state.json" (encode newState)
-

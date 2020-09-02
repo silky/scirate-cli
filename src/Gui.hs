@@ -128,8 +128,11 @@ draw state =
     paperPanel (state ^. papers)
     <=> 
     statePanels
+    <=>
+    B.hBorderWithLabel (B.txt help)
   ]
     where
+      help = " scirate-cli (Keys: n - No action, s - Scite, o - Open later, u - Undo, q - Quit) "
       ignored'      = listPapers Ignored    (state ^. ignored)
                         # B.borderWithLabel (B.txt (" ~ No action ~ "))
                         # B.hLimit 50

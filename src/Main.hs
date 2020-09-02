@@ -1,7 +1,9 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import           Scirate
-import           Gui                  (runGui, AppState(..))
+import           Gui
 import           Lens.Micro
 import           Configuration.Dotenv ( loadFile, defaultConfig, Config(..) )
 import           System.Directory     ( createDirectoryIfMissing
@@ -23,14 +25,17 @@ import           Options.Applicative  ( Parser
                                       , option
                                       , auto )
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Text            as Text
+import qualified Data.Text.IO         as Text
 
 data Mode
   = Resume
   | New
 
 data Options = Options
-  { mode  :: Mode
-  , range :: Int
+  { mode       :: Mode
+  , range      :: Int
+  , browserCmd :: Text.Text
   }
 
 
@@ -41,7 +46,8 @@ opts =
         ( long "new" <> help "Don't resume a previous session; start a new one." )
     <*> option auto
         ( long "range" <> help "If new, the `range` parameter for scirate." <> value 1 )
-
+    <*> option auto
+        ( long "browser-cmd" <> help "Command to open a browser." <> value "google-chrome" )
 
 config :: FilePath -> Config
 config homeDir =
@@ -50,7 +56,6 @@ config homeDir =
     , configOverride = False
     , configPath = [ homeDir </> ".env" ]
     }
-
 
 main :: IO ()
 main = do
@@ -62,11 +67,10 @@ main = do
 
   let queryFilePath = dataDir </> "query.json"
       stateFilePath = dataDir </> "state.json"
+      openLaterCmds = dataDir </> "openLater.sh"
 
   state <- case (mode opts) of
     New -> do
-      -- putStrLn "Querying data from scirate ..."
-
       --  1. Set up a scirate query
       --  2. Run it and collect papers
       q <- runScirateQuery ("https://scirate.com/?range=" <> show (range opts)) (range opts)
@@ -88,10 +92,21 @@ main = do
       return state
 
     Resume -> do
-      -- putStrLn "Resuming a previous session ..."
       state <- fromJust . decode <$> BSL.readFile stateFilePath
       return state
 
   newState <- runGui state
+
+
+  -- Write the 'openLater' file ...
+  let toOpen    = map (mkCmd . (<>) "https://scirate.com/arxiv/" . _uid) (newState ^. openingLater)
+      mkCmd url = (browserCmd opts) <> " " <> url <> " >/dev/null 2>&1 &"
+
+  Text.writeFile openLaterCmds (Text.unlines toOpen)
+
+
+  -- Run all the scitations
+  mapM_ scitePaper (newState ^. scited)
+
 
   BSL.writeFile stateFilePath (encode newState)

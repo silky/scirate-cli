@@ -24,10 +24,6 @@ import qualified Graphics.Vty          as V
 import qualified Graphics.Vty         as V
 import qualified Graphics.Vty.Input.Events as B
 
--- TODO:
---  - Actually running the actions
---  - Getting the data live from SciRate
-
 -- Stolen from diagrams.
 (#) :: a -> (a -> b) -> b
 (#) = flip ($)
@@ -72,7 +68,8 @@ instance FromJSON AppState
 
 
 paperPanel :: [Paper] -> B.Widget Name
-paperPanel []            = B.str "All caught up!" # B.center
+paperPanel []            = B.center $
+  B.txt "All caught up!"
 paperPanel (nextPaper:_) =
   B.center $
     ( B.txtWrap abstract' 

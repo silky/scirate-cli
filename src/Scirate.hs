@@ -18,10 +18,11 @@ import           Data.Time.Clock
 import           Network.HTTP.Conduit
 import           Network.HTTP.Types.Status (statusCode)
 import           Text.Read (readMaybe)
-import            System.Environment (getEnv)
+import           System.Environment (getEnv)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map            as Map
 import qualified Data.Text           as Text
+import qualified Data.Text.Encoding  as Text
 import qualified Text.HTML.DOM       as H
 import           Text.XML            (Document, Node(..), Element(..), Name(..))
 import           Text.XML.Cursor     (attributeIs, node, content, element,
@@ -129,6 +130,44 @@ cookie cookieValue = Cookie
   where
     past   = UTCTime (ModifiedJulianDay 56200)  (secondsToDiffTime 0)
     future = UTCTime (ModifiedJulianDay 562000) (secondsToDiffTime 0)
+
+
+scitePaper :: Paper 
+           -> IO ()
+scitePaper paper = do
+  cookieValue <- getEnv "SCIRATE_COOKIE"
+
+  -- Solid solid crime:
+  --
+  -- 1. Do a dummy request, get a CSRF token
+  let dummyPage = "https://scirate.com/arxiv/" <> paper ^. uid 
+  hackRequest <- parseRequest (Text.unpack dummyPage)
+  hackManager <- newManager   tlsManagerSettings
+
+  doc <- runResourceT $ do
+    response <- http (hackRequest { cookieJar = Just $ createCookieJar [cookie cookieValue] }) hackManager
+    runConduit $ responseBody response .| H.sinkDoc
+
+  let csrfToken = head . head $ fromDocument doc $// attributeIs "name" "csrf-token" &| attribute "content"
+  
+  -- 2. then send that token in the scite request.
+  request'    <- parseRequest (Text.unpack $ "https://scirate.com/api/scite/" <> paper ^. uid)
+  manager     <- newManager   tlsManagerSettings
+
+  let request = request' { cookieJar = Just $ createCookieJar [cookie cookieValue] 
+                         , method = "POST"
+                         , requestHeaders = [ ("X-CSRF-Token",     Text.encodeUtf8 csrfToken)
+                                            -- | Terrible hack; but makes it an xhr, which returns
+                                            --   less data.
+                                            , ("X-Requested-With", "XMLHttpRequest")
+                                            , ("X-Apologies",      "I'm sorry for this terrible hack.")
+                                            , ("X-Read-More",      "https://github.com/silky/scirate-cli")
+                                            ]
+                         }
+
+  _ <- httpLbs request manager
+
+  return ()
 
 
 asDocument :: String 

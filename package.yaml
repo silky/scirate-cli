@@ -18,7 +18,9 @@ dependencies:
   - bytestring
   - conduit
   - containers
+  - directory
   - dotenv
+  - filepath
   - html-conduit
   - http-conduit
   - http-types

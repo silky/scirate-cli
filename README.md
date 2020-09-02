@@ -1,6 +1,11 @@
 # scirate-cli
 
-Alternative names for this project
+![](./images/scirate-cli.png)
+
+
+#### Trivia
+
+Alternative names for this project:
 
 - scimate
 - clirate

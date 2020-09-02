@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c87f9924a6ba447d13afa62065a0a0b1f73ddfe3cc4668dd24fc4b8b7c1289be
+-- hash: 83b867db6b5bf70b4688d706c62e96415b5b133a336dcd10309995a0e6336941
 
 name:           scirate-cli
 version:        0.1.0.0
@@ -35,7 +35,9 @@ executable scirate-cli
     , bytestring
     , conduit
     , containers
+    , directory
     , dotenv
+    , filepath
     , html-conduit
     , http-conduit
     , http-types

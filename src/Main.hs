@@ -4,6 +4,10 @@ import           Scirate
 import           Gui                  (runGui, AppState(..))
 import           Lens.Micro
 import           Configuration.Dotenv (loadFile, defaultConfig)
+import           System.Directory     ( createDirectoryIfMissing
+                                      , getHomeDirectory
+                                      )
+import           System.FilePath      ((</>))
 import           Data.Aeson           (encode, decode)
 import           Data.Maybe           (fromJust)
 import           Data.Semigroup       ((<>))
@@ -42,8 +46,13 @@ opts =
 main :: IO ()
 main = do
   opts <- execParser (info (helper <*> opts) mempty)
-
   loadFile defaultConfig
+
+  dataDir <- flip (</>) ".scirate-cli" <$> getHomeDirectory 
+  createDirectoryIfMissing True dataDir
+
+  let queryFilePath = dataDir </> "query.json"
+      stateFilePath = dataDir </> "state.json"
 
   state <- case (mode opts) of
     New -> do
@@ -53,10 +62,8 @@ main = do
       --  2. Run it and collect papers
       q <- runScirateQuery ("https://scirate.com/?range=" <> show (range opts)) (range opts)
 
-      putStrLn "Saving the file!"
-      
       --  3. Save the query (and the papers)
-      BSL.writeFile "query.json" (encode q)
+      BSL.writeFile queryFilePath (encode q)
 
       --
       let state = AppState 
@@ -73,9 +80,9 @@ main = do
 
     Resume -> do
       putStrLn "Resuming a previous session ..."
-      state <- fromJust . decode <$> BSL.readFile "last-state.json" 
+      state <- fromJust . decode <$> BSL.readFile stateFilePath
       return state
 
   newState <- runGui state
 
-  BSL.writeFile "last-state.json" (encode newState)
+  BSL.writeFile stateFilePath (encode newState)

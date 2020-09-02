@@ -130,16 +130,16 @@ draw state =
     statePanels
   ]
     where
-      ignored'      = listPapers Ignored      (state ^. ignored)
-                        # B.borderWithLabel (B.txt (" ~ Ignore ~ "))
+      ignored'      = listPapers Ignored    (state ^. ignored)
+                        # B.borderWithLabel (B.txt (" ~ No action ~ "))
                         # B.hLimit 50
 
-      scited'       = listPapers Scited       (state ^. scited)
+      scited'       = listPapers Scited     (state ^. scited)
                         # B.borderWithLabel (B.txt (" ~ Scite ~ "))
                         # B.hLimit 50
 
       openingLater' = listPapers OpeningLater (state ^. openingLater)
-                        # B.borderWithLabel (B.txt (" ~ Open Later ~ "))
+                        # B.borderWithLabel   (B.txt (" ~ Open Later ~ "))
                         # B.hLimit 50
 
       statePanels   = ignored' <+> scited' <+> openingLater'
@@ -240,7 +240,7 @@ eventHandler s ev = do
       VtyC 'q' _ -> B.halt s
       VtyC 'u' _ -> (B.continue . undo) s
       VtyC 's' _ | papersRemain -> (B.continue . scite) s
-      VtyC 'i' _ | papersRemain -> (B.continue . ignore) s
+      VtyC 'n' _ | papersRemain -> (B.continue . ignore) s    -- N: "No action".
       VtyC 'o' _ | papersRemain -> (B.continue . openLater) s -- Open Later (this one DOESN'T advance the list.)
       --
       _ -> B.continue s

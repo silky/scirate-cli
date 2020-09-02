@@ -5,6 +5,7 @@ module Main where
 import           Scirate
 import           Gui
 import           Lens.Micro
+import           Control.Concurrent.Async.Pool (mapConcurrently, withTaskGroup)
 import           Configuration.Dotenv ( loadFile, defaultConfig, Config(..) )
 import           System.Directory     ( createDirectoryIfMissing
                                       , getHomeDirectory
@@ -106,7 +107,7 @@ main = do
 
 
   -- Run all the scitations
-  mapM_ scitePaper (newState ^. scited)
+  _ <- withTaskGroup 10 $ \g -> mapConcurrently g scitePaper (newState ^. scited)
 
 
   BSL.writeFile stateFilePath (encode newState)

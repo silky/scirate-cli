@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 83b867db6b5bf70b4688d706c62e96415b5b133a336dcd10309995a0e6336941
+-- hash: b094941a2fa1bd9ff7b3f292cc074b553fce58e5ec9107d38e9dba4a8faee09d
 
 name:           scirate-cli
 version:        0.1.0.0
@@ -30,6 +30,8 @@ executable scirate-cli
   ghc-options: -threaded
   build-depends:
       aeson
+    , async
+    , async-pool
     , base >=4.7 && <5
     , brick
     , bytestring

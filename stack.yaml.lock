@@ -3,7 +3,14 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: async-pool-0.9.1@sha256:4015140f896c3f1652b06a679b0ade2717d05557970c283ea2c372a71be2a6a1,1605
+    pantry-tree:
+      size: 443
+      sha256: 525b46e6a39c80b7461e8cd146d540c27d47abc717b746ff34c21aa9b1c47743
+  original:
+    hackage: async-pool-0.9.1@sha256:4015140f896c3f1652b06a679b0ade2717d05557970c283ea2c372a71be2a6a1,1605
 snapshots:
 - completed:
     size: 532377

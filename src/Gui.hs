@@ -98,6 +98,10 @@ paperPanel (nextPaper:_) =
       <=>
       B.txt (Text.intercalate "\n" (map ((<>) " - ") categories'))
       <=>
+      B.txt "\n"
+      <=>
+      B.txt (nextPaper ^. uid)
+      <=>
       B.fill ' ')
         # B.padBottom (B.Pad 1) 
         # B.padTop    (B.Pad 1) 
@@ -243,7 +247,8 @@ eventHandler s ev = do
       VtyC 'q' _ -> B.halt s
       VtyC 'u' _ -> (B.continue . undo) s
       VtyC 's' _ | papersRemain -> (B.continue . scite) s
-      VtyC 'n' _ | papersRemain -> (B.continue . ignore) s    -- N: "No action".
+      VtyC 'n' _ | papersRemain -> (B.continue . ignore) s    -- n: "No action".
+      VtyC 'i' _ | papersRemain -> (B.continue . ignore) s    -- i: "No action" (was "Ignore"; hard to forget!)
       VtyC 'o' _ | papersRemain -> (B.continue . openLater) s -- Open Later (this one DOESN'T advance the list.)
       --
       _ -> B.continue s

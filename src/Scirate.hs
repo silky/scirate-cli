@@ -9,7 +9,7 @@ import Lens.Micro.TH
 import           Conduit (runConduit, (.|))
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Data.Aeson
-import           Data.List (zipWith5)
+import           Data.List (zipWith6)
 import           Lens.Micro
 import           GHC.Generics
 import           Data.Maybe (isJust, fromJust)
@@ -25,7 +25,7 @@ import qualified Data.Text           as Text
 import qualified Text.HTML.DOM       as H
 import           Text.XML            (Document, Node(..), Element(..), Name(..))
 import           Text.XML.Cursor     (attributeIs, node, content, element,
-                                      fromDocument, Axis,
+                                      fromDocument, Axis, attribute,
                                       ($//), (&/), (&//), ($/), (&|))
 
 
@@ -35,6 +35,7 @@ data Paper = Paper
   , _authors    :: ![Text.Text]
   , _scites     :: !Int
   , _categories :: ![Text.Text]
+  , _uid        :: !Text.Text
   } deriving (Show, Eq, Generic)
 makeLenses ''Paper
 
@@ -91,20 +92,23 @@ loadPapers doc =
       authorsOf c    = map clean    $ c $// attributeIs       "class" "authors"      &// element "a"
       scitesOf c     = map asString $ c $// attributeIs       "class" "scites-count" &// element "button"
       categoriesOf c = map clean    $ c $// attributeIs       "class" "uid"          &/  element "a"
+      uidOf c        = map uidAttr  $ c $// attributeIs       "class" "scite-toggle"
 
-      clean x    = x $// content &| Text.strip
-      asString   = Text.intercalate " " . clean
+      uidAttr  = head . attribute "data-paper-uid"
+      clean x  = x $// content &| Text.strip
+      asString = Text.intercalate " " . clean
 
       nonEmpty f papers = map head . filter (not . null) $ map f papers
 
       stripCommas = Text.dropAround (\c -> c == ',')
 
-      final = zipWith5 Paper
+      final = zipWith6 Paper
                 (nonEmpty titlesOf papers)
                 (nonEmpty abstractsOf papers)
                 (map (map (stripCommas . head)) (map authorsOf papers))
                 (map (read . Text.unpack) (nonEmpty scitesOf papers))
                 (map (map head) (map categoriesOf papers))
+                (nonEmpty uidOf papers)
    in final
 
 

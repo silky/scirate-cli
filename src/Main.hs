@@ -5,6 +5,7 @@ module Main where
 import           Scirate
 import           Gui
 import           Lens.Micro
+import           Control.Monad        (when)
 import           Control.Concurrent.Async.Pool (mapConcurrently, withTaskGroup)
 import           Configuration.Dotenv ( loadFile, defaultConfig, Config(..) )
 import           System.Directory     ( createDirectoryIfMissing
@@ -106,8 +107,11 @@ main = do
   Text.writeFile openLaterCmds (Text.unlines toOpen)
 
 
-  -- Run all the scitations
-  _ <- withTaskGroup 10 $ \g -> mapConcurrently g scitePaper (newState ^. scited)
+  -- Run all the scitations when we're all caught up.
+  let papersRemain = length (newState ^. papers) > 0
 
+  when (not papersRemain) $ do
+    _ <- withTaskGroup 10 $ \g -> mapConcurrently g scitePaper (newState ^. scited)
+    return ()
 
   BSL.writeFile stateFilePath (encode newState)

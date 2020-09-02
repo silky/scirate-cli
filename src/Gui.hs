@@ -24,6 +24,11 @@ import qualified Graphics.Vty          as V
 import qualified Graphics.Vty         as V
 import qualified Graphics.Vty.Input.Events as B
 
+
+-- TODO:
+--  - Make the UI smoother with buttons
+
+
 -- Stolen from diagrams.
 (#) :: a -> (a -> b) -> b
 (#) = flip ($)
@@ -71,49 +76,49 @@ paperPanel :: [Paper] -> B.Widget Name
 paperPanel []            = B.center $
   B.txt "All caught up!"
 paperPanel (nextPaper:_) =
-  B.center $
-    ( B.txtWrap abstract' 
-      <=> B.fill ' '
-    )
-      # B.padBottom (B.Pad 1) 
-      # B.padTop    (B.Pad 1) 
-      # B.padLeft   (B.Pad 2) 
-      # B.padRight  (B.Pad 2) 
-      # B.borderWithLabel (B.str " " <+> (B.withAttr "title" $ B.txt title') <+> B.str " ")
-      # B.hLimit 88
-      # B.vLimit 20
-      # B.padAll 1
-    <+>
-    (( 
-      B.txt "Authors:"
-      <=>
-      B.txt (Text.intercalate "\n" (map ((<>) " - ") authors'))
-      <=>
-      B.txt "\n"
-      <=>
-      B.txt "Categories:"
-      <=>
-      B.txt (Text.intercalate "\n" (map ((<>) " - ") categories'))
-      <=>
-      B.txt "\n"
-      <=>
-      B.txt (nextPaper ^. uid)
-      <=>
-      B.fill ' ')
-        # B.padBottom (B.Pad 1) 
-        # B.padTop    (B.Pad 1) 
-        # B.padLeft   (B.Pad 2) 
-        # B.padRight  (B.Pad 2) 
-        # B.borderWithLabel (B.withAttr "scites" $ B.txt (" Scites: " <> Text.pack (show $ nextPaper ^. scites) <> " "))
-        # B.hLimit 30
-        # B.vLimit 20
-        # B.padAll 1
-    )
+  ( paperTitle <=>
+      ( paperAbstract <+> paperMeta ) # B.center
+  ) # B.center
   where
-      abstract'   = nextPaper ^. abstract
-      authors'    = nextPaper ^. authors
-      categories' = nextPaper ^. categories
-      title'      = nextPaper ^. title
+    paperTitle
+      = (B.str " " <+> (B.withAttr "title" $ B.txt title') <+> B.str " ")
+
+    paperAbstract = ( B.txtWrap abstract' <=> B.fill ' ' )
+                      # B.padBottom (B.Pad 1) 
+                      # B.padTop    (B.Pad 1) 
+                      # B.padLeft   (B.Pad 2) 
+                      # B.padRight  (B.Pad 2) 
+                      # B.borderWithLabel (B.withAttr "scites" $ B.txt (" Scites: " <> Text.pack (show $ nextPaper ^. scites) <> " "))
+                      # B.hLimit 118
+                      # B.vLimit 25
+                      # B.padAll 1
+    paperMeta = ( B.txt "Authors:"
+                <=>
+                B.txt (Text.intercalate "\n" (map ((<>) " - ") authors'))
+                <=>
+                B.txt "\n"
+                <=>
+                B.txt "Categories:"
+                <=>
+                B.txt (Text.intercalate "\n" (map ((<>) " - ") categories'))
+                <=>
+                B.txt "\n"
+                <=>
+                B.txt (nextPaper ^. uid)
+                <=>
+                B.fill ' ')
+                  # B.padBottom (B.Pad 1) 
+                  # B.padTop    (B.Pad 1) 
+                  # B.padLeft   (B.Pad 2) 
+                  # B.padRight  (B.Pad 2) 
+                  # B.borderWithLabel (B.withAttr "scites" $ B.txt (" arXiv:" <> nextPaper ^. uid <> " "))
+                  # B.hLimit 30
+                  # B.vLimit 25
+                  # B.padAll 1
+    abstract'   = nextPaper ^. abstract
+    authors'    = nextPaper ^. authors
+    categories' = nextPaper ^. categories
+    title'      = nextPaper ^. title
 
 
 draw :: AppState
@@ -244,6 +249,7 @@ eventHandler s ev = do
       VtyC 'q' _ -> B.halt s
       VtyC 'u' _ -> (B.continue . undo) s
       VtyC 's' _ | papersRemain -> (B.continue . scite) s
+      VtyC ' ' _ | papersRemain -> (B.continue . ignore) s    -- <Space>: "No action".
       VtyC 'n' _ | papersRemain -> (B.continue . ignore) s    -- n: "No action".
       VtyC 'i' _ | papersRemain -> (B.continue . ignore) s    -- i: "No action" (was "Ignore"; hard to forget!)
       VtyC 'o' _ | papersRemain -> (B.continue . openLater) s -- Open Later (this one DOESN'T advance the list.)

@@ -3,7 +3,7 @@ module Main where
 import           Scirate
 import           Gui                  (runGui, AppState(..))
 import           Lens.Micro
-import           Configuration.Dotenv (loadFile, defaultConfig)
+import           Configuration.Dotenv ( loadFile, defaultConfig, Config(..) )
 import           System.Directory     ( createDirectoryIfMissing
                                       , getHomeDirectory
                                       )
@@ -43,13 +43,22 @@ opts =
         ( long "range" <> help "If new, the `range` parameter for scirate." <> value 1 )
 
 
+config :: FilePath -> Config
+config homeDir =
+  Config
+    { configExamplePath = []
+    , configOverride = False
+    , configPath = [ homeDir </> ".env" ]
+    }
+
+
 main :: IO ()
 main = do
-  opts <- execParser (info (helper <*> opts) mempty)
-  loadFile defaultConfig
-
+  opts    <- execParser (info (helper <*> opts) mempty)
   dataDir <- flip (</>) ".scirate-cli" <$> getHomeDirectory 
   createDirectoryIfMissing True dataDir
+
+  loadFile (config dataDir)
 
   let queryFilePath = dataDir </> "query.json"
       stateFilePath = dataDir </> "state.json"

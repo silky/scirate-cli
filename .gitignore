@@ -1,2 +1,4 @@
 .stack-work/
 *.html
+.env
+query.json

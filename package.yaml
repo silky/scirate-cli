@@ -13,14 +13,23 @@ extra-source-files:
 
 dependencies:
   - base >= 4.7 && < 5
+  - aeson
   - brick
+  - bytestring
+  - conduit
   - containers
+  - dotenv
+  - html-conduit
+  - http-conduit
+  - http-types
   - microlens
   - microlens-th
+  - optparse-applicative
+  - resourcet
   - text
+  - time
   - vty
   - xml-conduit
-  - html-conduit
 
 executables:
   scirate-cli:

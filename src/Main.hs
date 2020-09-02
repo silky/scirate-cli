@@ -1,265 +1,66 @@
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-
 module Main where
 
-import Lens.Micro
-import Lens.Micro.TH
+import           Scirate
+import           Gui                  (runGui)
+import           Configuration.Dotenv (loadFile, defaultConfig)
+import           Data.Aeson           (encode, decode)
+import           Data.Maybe           (fromJust)
+import           Data.Semigroup       ((<>))
+import           Options.Applicative  ( Parser
+                                      , info
+                                      , helper
+                                      , execParser
+                                      , (<*>)
+                                      , value
+                                      , help
+                                      , flag
+                                      , long
+                                      , option
+                                      , auto )
+import qualified Data.ByteString.Lazy as BSL
 
-import qualified Graphics.Vty         as V
+data Mode
+  = Resume
+  | New
 
-import Scirate
-
-import qualified Data.List           as List
-import qualified Data.Text           as Text
-
-import           Brick ((<=>), (<+>))
-import qualified Brick                 as B
-import qualified Brick.Widgets.List    as B
-import qualified Brick.Widgets.Border  as B
-import qualified Brick.Widgets.Center  as B
-import qualified Brick.BChan           as B
-import qualified Brick.Focus           as B
-import qualified Brick.Forms           as B
-import qualified Graphics.Vty          as V
-import qualified Graphics.Vty.Input.Events as B
-
--- TODO:
---  - Actually running the actions
-
--- Stolen from diagrams.
-(#) :: a -> (a -> b) -> b
-(#) = flip ($)
-
--- Using `PatternSynonyms`
-pattern VtyC :: Char -> [B.Modifier] -> B.BrickEvent n e
-pattern VtyC c ms = B.VtyEvent (V.EvKey (V.KChar c) ms)
-
-pattern VtyE :: B.Key -> [B.Modifier] -> B.BrickEvent n e
-pattern VtyE k ms = B.VtyEvent (V.EvKey k ms)
-
--- Stolen from https://hackage.haskell.org/package/lens-3.2/docs/src/Data-List-Lens.html#~%3A
--- to append to a setter that refers to a list.
-(~:) :: a -> ASetter s t [a] [a] -> s -> t
-n ~: l = over l (n :)
-
-instance B.Splittable [] where
-  splitAt = List.splitAt
-
-data Name
-  = Scited
-  | Ignored
-  | OpeningLater
-  deriving (Eq, Ord, Show)
-
-data AppState = AppState
-  { _papers       :: [Paper]
-  , _currentIndex :: Int
-  , _scited       :: [Paper]
-  , _ignored      :: [Paper]
-  , _openingLater :: [Paper]
-  -- | For undo
-  , _actions      :: [Name]
-  }
-makeLenses ''AppState
-
-
-paperPanel :: [Paper] -> B.Widget Name
-paperPanel []            = B.str "All caught up!" # B.center
-paperPanel (nextPaper:_) =
-  B.center $
-    ( B.txtWrap abstract' 
-      <=> B.fill ' '
-    )
-      # B.padBottom (B.Pad 1) 
-      # B.padTop    (B.Pad 1) 
-      # B.padLeft   (B.Pad 2) 
-      # B.padRight  (B.Pad 2) 
-      # B.borderWithLabel (B.withAttr "title" $ B.txt (" " <> title' <> " "))
-      # B.hLimit 88
-      # B.vLimit 20
-      # B.padAll 1
-    <+>
-    (( 
-      B.txt "Authors:"
-      <=>
-      B.txt (Text.intercalate "\n" (map ((<>) " - ") authors'))
-      <=>
-      B.txt "\n"
-      <=>
-      B.txt "Categories:"
-      <=>
-      B.txt (Text.intercalate "\n" (map ((<>) " - ") categories'))
-      <=>
-      B.fill ' ')
-        # B.padBottom (B.Pad 1) 
-        # B.padTop    (B.Pad 1) 
-        # B.padLeft   (B.Pad 2) 
-        # B.padRight  (B.Pad 2) 
-        # B.borderWithLabel (B.withAttr "scites" $ B.txt (" Scites: " <> Text.pack (show $ nextPaper ^. scites) <> " "))
-        # B.hLimit 30
-        # B.vLimit 20
-        # B.padAll 1
-    )
-  where
-      abstract'   = nextPaper ^. abstract
-      authors'    = nextPaper ^. authors
-      categories' = nextPaper ^. categories
-      title'      = nextPaper ^. title
-
-
-draw :: AppState
-     -> [B.Widget Name]
-draw state =
-  [ 
-    B.hBorderWithLabel (
-      B.txt $ " Remaining: " 
-        <> (Text.pack (show . length $ state ^. papers))
-        <> " "
-    )
-    <=>
-    paperPanel (state ^. papers)
-    <=> 
-    statePanels
-  ]
-    where
-      ignored'      = listPapers Ignored      (state ^. ignored)
-                        # B.borderWithLabel (B.txt (" ~ Ignore ~ "))
-                        # B.hLimit 50
-
-      scited'       = listPapers Scited       (state ^. scited)
-                        # B.borderWithLabel (B.txt (" ~ Scite ~ "))
-                        # B.hLimit 50
-
-      openingLater' = listPapers OpeningLater (state ^. openingLater)
-                        # B.borderWithLabel (B.txt (" ~ Open Later ~ "))
-                        # B.hLimit 50
-
-      statePanels   = ignored' <+> scited' <+> openingLater'
-                        # B.padLeft  (B.Pad 1)
-                        # B.padRight (B.Pad 1)
-                        # B.vLimit 20
-                        # B.hCenter
-
-
-listPapers :: Name -> [Paper] -> B.Widget Name
-listPapers n papers
-  = B.renderList (const B.txt) False paperList
-    where
-      paperList = B.list n (map _title papers) 1
-
-
-app :: B.App AppState e Name
-app = B.App 
-  { B.appDraw         = draw
-  , B.appChooseCursor = \_ _ -> Nothing
-  , B.appHandleEvent  = eventHandler
-  , B.appStartEvent   = return
-  , B.appAttrMap      = const style
+data Options = Options
+  { mode  :: Mode
+  , range :: Int
   }
 
 
-style :: B.AttrMap
-style = B.attrMap V.defAttr
-  [ ("title",  B.fg V.cyan)
-  ]
-
-
-updateList f a state = newState
-  where
-    (nextPaper:remainingPapers) = state ^. papers
-    newState = state & nextPaper ~: f
-                     & papers .~ remainingPapers
-                     & a ~: actions
-
-
-scite :: AppState -> AppState
-scite = updateList scited Scited
-
-
-ignore :: AppState -> AppState
-ignore = updateList ignored Ignored
-
-
-openLater :: AppState -> AppState
-openLater state = newState
-  where
-    remainingPapers@(nextPaper:_) = state ^. papers
-
-    newState 
-      | not (null (state ^. openingLater)) &&
-          head (state ^. openingLater) == nextPaper = state
-      | otherwise
-          = state & nextPaper ~: openingLater
-                  & papers .~ remainingPapers
-                  & OpeningLater ~: actions
-
-
-undo :: AppState -> AppState
-undo state =
-    newState
-  where
-    newState
-      | null (state ^. actions) = state
-      | otherwise               = undoAction (head (state ^. actions))
-
-    undoAction Scited  = 
-      let (p:ps) = state ^. scited
-       in state & scited .~ ps
-                & actions .~ tail (state ^. actions)
-                & p       ~: papers
-
-    undoAction Ignored  = 
-      let (p:ps) = state ^. ignored
-       in state & ignored .~ ps
-                & actions .~ tail (state ^. actions)
-                & p       ~: papers
-
-    undoAction OpeningLater = 
-      let (p:ps) = state ^. openingLater
-       in state & openingLater .~ ps
-                & actions .~ tail (state ^. actions)
-
-
-eventHandler :: AppState 
-             -> B.BrickEvent Name e 
-             -> B.EventM Name (B.Next (AppState))
-eventHandler s ev = do
-  let papersRemain = length (s ^. papers) > 0
-  case ev of
-      B.VtyEvent (V.EvResize {})     -> B.continue s
-      B.VtyEvent (V.EvKey V.KEsc []) -> B.halt s
-      --
-      VtyC 'q' _ -> B.halt s
-      VtyC 'u' _ -> (B.continue . undo) s
-      VtyC 's' _ | papersRemain -> (B.continue . scite) s
-      VtyC 'i' _ | papersRemain -> (B.continue . ignore) s
-      VtyC 'o' _ | papersRemain -> (B.continue . openLater) s -- Open Later (this one DOESN'T advance the list.)
-      --
-      _ -> B.continue s
+opts :: Parser Options
+opts =
+  Options
+    <$> flag Resume New
+        ( long "new" <> help "Don't resume a previous session; start a new one." )
+    <*> option auto
+        ( long "range" <> help "If new, the `range` parameter for scirate." <> value 1 )
 
 
 main :: IO ()
 main = do
-  papers' <- loadPapers
+  opts <- execParser (info (helper <*> opts) mempty)
 
-  let buildVty = do
-        v <- V.mkVty =<< V.standardIOConfig
-        V.setMode (V.outputIface v) V.Mouse True
-        return v
-      --
-      state =
-        AppState 
-          { _papers       = papers'
-          , _currentIndex = 0
-          , _scited       = []
-          , _ignored      = []
-          , _openingLater = []
-          , _actions      = []
-          }
+  loadFile defaultConfig
 
-  initialVty <- buildVty
-  result     <- B.customMain initialVty buildVty Nothing app state
+  scirate <- case (mode opts) of
+    New -> do
+      putStrLn "Querying data from scirate ..."
 
-  return ()
+      --  1. Set up a scirate query
+      --  2. Run it and collect papers
+      q <- runScirateQuery ("https://scirate.com/?range=" <> show (range opts)) (range opts)
+      
+      --  3. Save the query (and the papers)
+      BSL.writeFile "query.json" (encode q)
+      return q
+
+    Resume -> do
+      putStrLn "Resuming a previous session ..."
+      q <- fromJust . decode <$> BSL.readFile "query.json" 
+      return q
+
+  -- 4. Run
+
+  runGui scirate

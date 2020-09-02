@@ -65,7 +65,7 @@ main = do
 
   state <- case (mode opts) of
     New -> do
-      putStrLn "Querying data from scirate ..."
+      -- putStrLn "Querying data from scirate ..."
 
       --  1. Set up a scirate query
       --  2. Run it and collect papers
@@ -88,7 +88,7 @@ main = do
       return state
 
     Resume -> do
-      putStrLn "Resuming a previous session ..."
+      -- putStrLn "Resuming a previous session ..."
       state <- fromJust . decode <$> BSL.readFile stateFilePath
       return state
 

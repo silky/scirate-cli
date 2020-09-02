@@ -155,8 +155,6 @@ runScirateQuery url range = do
 
   allDocs <- ((:) doc0) <$> mapM asDocument pages
 
-  putStrLn "Collected all the docs!"
-
   let allPapers = concat $ map loadPapers allDocs
       scirate   = ScirateQuery
                     { _date        = now
@@ -164,6 +162,4 @@ runScirateQuery url range = do
                     , _visitedUrls = pages
                     , _papersFound = allPapers
                     }
-
-  putStrLn $ "Found: " <> show (length (scirate ^. papersFound))
   return scirate

@@ -12,22 +12,15 @@ import           Lens.Micro
 import           Lens.Micro.TH
 import           Scirate
 import qualified Brick                 as B
-import qualified Brick.BChan           as B
 import qualified Brick.Focus           as B
-import qualified Brick.Forms           as B
 import qualified Brick.Widgets.Border  as B
 import qualified Brick.Widgets.Center  as B
 import qualified Brick.Widgets.List    as B
-import qualified Data.List           as List
-import qualified Data.Text           as Text
+import qualified Data.List             as List
+import qualified Data.Text             as Text
 import qualified Graphics.Vty          as V
-import qualified Graphics.Vty         as V
+import qualified Graphics.Vty          as V
 import qualified Graphics.Vty.Input.Events as B
-
-
--- TODO:
---  - Make the UI smoother with buttons
-
 
 -- Stolen from diagrams.
 (#) :: a -> (a -> b) -> b
@@ -48,14 +41,22 @@ n ~: l = over l (n :)
 instance B.Splittable [] where
   splitAt = List.splitAt
 
-data Name
-  = Scited
-  | Ignored
-  | OpeningLater
-  deriving (Eq, Ord, Show, Generic)
+data Action
+  = Scite
+  | Ignore
+  | OpenLater
+  deriving (Show, Generic)
+instance ToJSON   Action
+instance FromJSON Action
 
-instance ToJSON   Name
-instance FromJSON Name
+data Name
+  = ScitedList
+  | IgnoredList
+  | OpeningLaterList
+  | SciteButton
+  | IgnoreButton
+  | OpenLaterButton
+  deriving (Eq, Ord, Show, Generic)
 
 data AppState = AppState
   { _papers       :: ![Paper]
@@ -64,12 +65,24 @@ data AppState = AppState
   , _ignored      :: ![Paper]
   , _openingLater :: ![Paper]
   -- | For undo
-  , _actions      :: ![Name]
+  , _actions      :: ![Action]
   } deriving (Show, Generic)
 makeLenses ''AppState
 
 instance ToJSON   AppState
 instance FromJSON AppState
+
+type RunningAppState = (B.FocusRing Name, AppState)
+
+mkAppState :: [Paper] -> AppState
+mkAppState papers = AppState
+  { _papers       = papers
+  , _currentIndex = 0
+  , _scited       = []
+  , _ignored      = []
+  , _openingLater = []
+  , _actions      = []
+  }
 
 
 paperPanel :: [Paper] -> B.Widget Name
@@ -96,15 +109,9 @@ paperPanel (nextPaper:_) =
                 <=>
                 B.txt (Text.intercalate "\n" (map ((<>) " - ") authors'))
                 <=>
-                B.txt "\n"
-                <=>
-                B.txt "Categories:"
+                B.txt "\n" <=> B.txt "Categories:"
                 <=>
                 B.txt (Text.intercalate "\n" (map ((<>) " - ") categories'))
-                <=>
-                B.txt "\n"
-                <=>
-                B.txt (nextPaper ^. uid)
                 <=>
                 B.fill ' ')
                   # B.padBottom (B.Pad 1) 
@@ -121,9 +128,9 @@ paperPanel (nextPaper:_) =
     title'      = nextPaper ^. title
 
 
-draw :: AppState
+draw :: RunningAppState
      -> [B.Widget Name]
-draw state =
+draw runningState@(fr, state) =
   [ 
     B.hBorderWithLabel (
       B.txt $ " Remaining: " 
@@ -132,22 +139,34 @@ draw state =
     )
     <=>
     paperPanel (state ^. papers)
-    <=> 
+    <=>
+    (actionPanel # B.padAll 1 # B.hCenter)
+    <=>
     statePanels
     <=>
     B.hBorderWithLabel (B.txt help)
   ]
     where
-      help = " scirate-cli (Keys: n - No action, s - Scite, o - Open later, u - Undo, q - Quit) "
-      ignored'      = listPapers Ignored    (state ^. ignored)
+      getStyle b = maybe " " (\x ->if b == x then "focused-button" else "button") (B.focusGetCurrent fr)
+      btnIgnoreStyle    = getStyle IgnoreButton
+      btnSciteStyle     = getStyle SciteButton
+      btnOpenLaterStyle = getStyle OpenLaterButton
+
+      actionPanel = B.str "Actions: " 
+                      <+> ( B.str " " <+> B.withAttr btnIgnoreStyle    (B.str "No action")  <+> B.str " " )
+                      <+> ( B.str " " <+> B.withAttr btnSciteStyle     (B.str "Scite")      <+> B.str " " )
+                      <+> ( B.str " " <+> B.withAttr btnOpenLaterStyle (B.str "Open later") <+> B.str " " )
+
+      help = " scirate-cli (Keys: n - No action, s - Scite, o - Open later, u - Undo, q - Quit, Enter - Currrent action, Left/Right - Swtich action) "
+      ignored'      = listPapers IgnoredList   (state ^. ignored)
                         # B.borderWithLabel (B.txt (" ~ No action ~ "))
                         # B.hLimit 50
 
-      scited'       = listPapers Scited     (state ^. scited)
+      scited'       = listPapers ScitedList     (state ^. scited)
                         # B.borderWithLabel (B.txt (" ~ Scite ~ "))
                         # B.hLimit 50
 
-      openingLater' = listPapers OpeningLater (state ^. openingLater)
+      openingLater' = listPapers OpeningLaterList (state ^. openingLater)
                         # B.borderWithLabel   (B.txt (" ~ Open Later ~ "))
                         # B.hLimit 50
 
@@ -165,7 +184,7 @@ listPapers n papers
       paperList = B.list n (map _title papers) 1
 
 
-app :: B.App AppState e Name
+app :: B.App RunningAppState e Name
 app = B.App 
   { B.appDraw         = draw
   , B.appChooseCursor = \_ _ -> Nothing
@@ -177,7 +196,9 @@ app = B.App
 
 style :: B.AttrMap
 style = B.attrMap V.defAttr
-  [ ("title",  V.withStyle (B.fg V.brightGreen) V.underline)
+  [ ("title",          V.withStyle (B.fg V.brightGreen) V.underline)
+  , ("button",         V.withStyle (B.fg V.blue) V.underline)
+  , ("focused-button", V.withStyle (V.withStyle (B.fg V.blue) V.underline) V.bold)
   ]
 
 
@@ -190,11 +211,11 @@ updateList f a state = newState
 
 
 scite :: AppState -> AppState
-scite = updateList scited Scited
+scite = updateList scited Scite
 
 
 ignore :: AppState -> AppState
-ignore = updateList ignored Ignored
+ignore = updateList ignored Ignore
 
 
 openLater :: AppState -> AppState
@@ -208,7 +229,7 @@ openLater state = newState
       | otherwise
           = state & nextPaper ~: openingLater
                   & papers .~ remainingPapers
-                  & OpeningLater ~: actions
+                  & OpenLater ~: actions
 
 
 undo :: AppState -> AppState
@@ -219,42 +240,52 @@ undo state =
       | null (state ^. actions) = state
       | otherwise               = undoAction (head (state ^. actions))
 
-    undoAction Scited  = 
+    undoAction Scite  = 
       let (p:ps) = state ^. scited
        in state & scited .~ ps
                 & actions .~ tail (state ^. actions)
                 & p       ~: papers
 
-    undoAction Ignored  = 
+    undoAction Ignore  = 
       let (p:ps) = state ^. ignored
        in state & ignored .~ ps
                 & actions .~ tail (state ^. actions)
                 & p       ~: papers
 
-    undoAction OpeningLater = 
+    undoAction OpenLater = 
       let (p:ps) = state ^. openingLater
        in state & openingLater .~ ps
                 & actions .~ tail (state ^. actions)
 
 
-eventHandler :: AppState 
+eventHandler :: RunningAppState 
              -> B.BrickEvent Name e 
-             -> B.EventM Name (B.Next (AppState))
-eventHandler s ev = do
-  let papersRemain = length (s ^. papers) > 0
+             -> B.EventM Name (B.Next (RunningAppState))
+eventHandler runningState@(fr, s) ev = do
+  let papersRemain  = length (s ^. papers) > 0
+      wrapRunning   = (,) fr
+      withFocus b   = (& _1 %~ (B.focusSetCurrent b)) . wrapRunning
+      focusedOp     = case B.focusGetCurrent fr of
+                        Just IgnoreButton    -> ignore
+                        Just SciteButton     -> scite
+                        Just OpenLaterButton -> openLater
+                        _                    -> id
+
   case ev of
-      B.VtyEvent (V.EvResize {})     -> B.continue s
-      B.VtyEvent (V.EvKey V.KEsc []) -> B.halt s
+      B.VtyEvent (V.EvResize {})     -> B.continue . wrapRunning $ s
+      B.VtyEvent (V.EvKey V.KEsc []) -> B.halt . wrapRunning $ s
       --
-      VtyC 'q' _ -> B.halt s
-      VtyC 'u' _ -> (B.continue . undo) s
-      VtyC 's' _ | papersRemain -> (B.continue . scite) s
-      VtyC ' ' _ | papersRemain -> (B.continue . ignore) s    -- <Space>: "No action".
-      VtyC 'n' _ | papersRemain -> (B.continue . ignore) s    -- n: "No action".
-      VtyC 'i' _ | papersRemain -> (B.continue . ignore) s    -- i: "No action" (was "Ignore"; hard to forget!)
-      VtyC 'o' _ | papersRemain -> (B.continue . openLater) s -- Open Later (this one DOESN'T advance the list.)
+      VtyC 'q' _ -> B.halt . wrapRunning $ s
+      VtyC 'u' _ -> (B.continue . wrapRunning . undo) s
+      VtyC 's' _ | papersRemain -> (B.continue . withFocus SciteButton  . scite) s
+      VtyC 'n' _ | papersRemain -> (B.continue . withFocus IgnoreButton . ignore) s    -- n: "No action".
+      VtyC 'o' _ | papersRemain -> (B.continue . wrapRunning . openLater) s -- Open Later (this one DOESN'T advance the list.)
       --
-      _ -> B.continue s
+      B.VtyEvent (V.EvKey V.KEnter  []) -> B.continue . wrapRunning . focusedOp $ s
+      B.VtyEvent (V.EvKey V.KLeft   []) -> B.continue . ((,) (B.focusPrev fr))  $ s
+      B.VtyEvent (V.EvKey V.KRight  []) -> B.continue . ((,) (B.focusNext fr))  $ s
+      --
+      _ -> B.continue . wrapRunning $ s
 
 
 runGui :: AppState -> IO AppState
@@ -264,7 +295,12 @@ runGui state = do
         V.setMode (V.outputIface v) V.Mouse True
         return v
 
-  initialVty <- buildVty
-  finalState <- B.customMain initialVty buildVty Nothing app state
+  let fr = B.focusSetCurrent IgnoreButton $
+            B.focusRing [ IgnoreButton, SciteButton, OpenLaterButton ]
 
-  return finalState
+      runningState = (fr, state)
+
+  initialVty <- buildVty
+  finalState <- B.customMain initialVty buildVty Nothing app runningState
+
+  return (snd finalState)

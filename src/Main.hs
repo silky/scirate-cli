@@ -81,14 +81,7 @@ main = do
       BSL.writeFile queryFilePath (encode q)
 
       --
-      let state = AppState 
-                    { _papers       = q ^. papersFound
-                    , _currentIndex = 0
-                    , _scited       = []
-                    , _ignored      = []
-                    , _openingLater = []
-                    , _actions      = []
-                    }
+      let state = mkAppState (q ^. papersFound)
 
       --  4. Run
       return state
@@ -111,6 +104,7 @@ main = do
   let papersRemain = length (newState ^. papers) > 0
 
   when (not papersRemain) $ do
+    putStrLn "Committing scites ..."
     _ <- withTaskGroup 10 $ \g -> mapConcurrently g scitePaper (newState ^. scited)
     return ()
 

@@ -62,6 +62,11 @@ config homeDir =
 main :: IO ()
 main = do
   opts    <- execParser (info (helper <*> opts) mempty)
+
+  -- | Don't query arbitrarily many number of pages from scirate.
+  when (range opts > 10) $ do
+    error "ERROR: Range too big!"
+
   dataDir <- flip (</>) ".scirate-cli" <$> getHomeDirectory 
   createDirectoryIfMissing True dataDir
 

@@ -44,6 +44,16 @@ sh ~/.scirate-cli/openLater.sh
 
 You can resume a session by just running `scirate-cli`.
 
+# Notes
+
+This tool does no syncing really. It only gets the paper-information from
+scirate, and then when you exit, prompts to push back all the scites you made.
+If you resume again, it will prompt again to push the scites, _even though_
+they were already done. So just hit "n" the second time. :shrug:
+
+Feel free to help out with a PR if you see something you want to fix or would
+like to add :) In particular, the colour scheme I've picked may not suit your
+terminal colour definitions.
 
 #### Trivia
 

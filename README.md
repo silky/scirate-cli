@@ -1,5 +1,8 @@
 # scirate-cli
 
+cli browsing tool for <https://scirate.com>. Trade scrolling for pressing buttons!
+
+
 ![](./images/scirate-cli.png)
 
 
@@ -43,9 +46,6 @@ You can resume a session by just running `scirate-cli`.
 
 #### Trivia
 
-Alternative names for this project:
+Alternative name for this project:
 
 - scimate
-- clirate
-
-

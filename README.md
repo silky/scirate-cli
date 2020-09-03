@@ -1,6 +1,7 @@
 # scirate-cli
 
-cli browsing tool for <https://scirate.com>. Trade scrolling for pressing buttons!
+Terminal-based browsing tool for <https://scirate.com>. Trade scrolling for
+pressing buttons!
 
 
 ![](./images/scirate-cli.png)

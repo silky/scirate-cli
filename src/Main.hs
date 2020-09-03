@@ -5,6 +5,7 @@ module Main where
 import           Scirate
 import           Gui
 import           Lens.Micro
+import           Data.Char            (toLower)
 import           Control.Monad        (when)
 import           Control.Concurrent.Async.Pool (mapConcurrently, withTaskGroup)
 import           Configuration.Dotenv ( loadFile, defaultConfig, Config(..) )
@@ -109,8 +110,11 @@ main = do
   let papersRemain = length (newState ^. papers) > 0
 
   when (not papersRemain) $ do
-    putStrLn "Committing scites ..."
-    _ <- withTaskGroup 10 $ \g -> mapConcurrently g scitePaper (newState ^. scited)
-    return ()
+    putStrLn "Commit scites? [y/N]"
+    decision <- getLine
+    when ((map toLower decision) == "y") $ do
+      putStrLn "Committing scites ..."
+      _ <- withTaskGroup 10 $ \g -> mapConcurrently g scitePaper (newState ^. scited)
+      return ()
 
   BSL.writeFile stateFilePath (encode newState)

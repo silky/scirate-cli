@@ -198,7 +198,7 @@ style :: B.AttrMap
 style = B.attrMap V.defAttr
   [ ("title",          V.withStyle (B.fg V.brightGreen) V.underline)
   , ("button",         V.withStyle (B.fg V.blue) V.underline)
-  , ("focused-button", V.withStyle (V.withStyle (B.fg V.blue) V.underline) V.bold)
+  , ("focused-button", V.withStyle (V.withStyle (V.blue `B.on` V.white) V.underline) V.bold)
   ]
 
 

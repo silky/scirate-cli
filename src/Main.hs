@@ -23,6 +23,8 @@ import           Options.Applicative  ( Parser
                                       , (<*>)
                                       , value
                                       , help
+                                      , strOption
+                                      , showDefault
                                       , flag
                                       , long
                                       , option
@@ -48,9 +50,15 @@ opts =
     <$> flag Resume New
         ( long "new" <> help "Don't resume a previous session; start a new one." )
     <*> option auto
-        ( long "range" <> help "If new, the `range` parameter for scirate." <> value 1 )
-    <*> option auto
-        ( long "browser-cmd" <> help "Command to open a browser." <> value "google-chrome" )
+        ( long "range" <> help "If new, the `range` parameter for scirate."
+                       <> value 1
+                       <> showDefault
+        )
+    <*> strOption
+        ( long "browser-cmd" <> help "Command to open a browser." 
+                             <> value "google-chrome" 
+                             <> showDefault
+        )
 
 config :: FilePath -> Config
 config homeDir =

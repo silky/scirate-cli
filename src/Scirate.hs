@@ -173,7 +173,7 @@ scitePaper paper = do
 asDocument :: String 
            -> IO (Document)
 asDocument url = do
-  putStrLn $ "Querying ... " <> url
+  -- putStrLn $ "Querying ... " <> url
 
   request'    <- parseRequest url
   manager     <- newManager   tlsManagerSettings

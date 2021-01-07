@@ -28,9 +28,9 @@ stack install
 - Make a folder `~/.scirate-cli` and make a file `~/.scirate-cli/.env` and
    put the following:
 
-  ```
-  SCIRATE_COOKIE=<that cookie value>
-  ```
+```
+SCIRATE_COOKIE=<that cookie value>
+```
 
 - Run `scirate-cli --new --range 1` to query todays papers!
 
